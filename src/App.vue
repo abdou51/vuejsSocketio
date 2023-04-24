@@ -5,9 +5,13 @@
         <h1 class="text-xl font-bold text-gray-800">Vue Chat</h1>
       </div>
       <div class="p-4">
-        <div v-if="!username" class="text-center">
-          <input type="text" v-model="name" placeholder="Enter your name" class="py-2 px-4 border border-gray-400 rounded-lg w-full mb-4" @keyup.enter="startChat">
-          <button class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg w-full" @click="startChat">Start Chatting</button>
+        <div v-if="!loggedIn" class="text-center">
+          <form>
+            <input type="text" v-model="username" placeholder="Enter your username" class="py-2 px-4 border border-gray-400 rounded-lg w-full mb-4">
+            <input type="password" v-model="password" placeholder="Enter your password" class="py-2 px-4 border border-gray-400 rounded-lg w-full mb-4">
+            <button class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg w-full" @click.prevent="login">Login</button>
+            <div v-if="errorMessage" class="error-message" v-html="errorMessage"></div>
+          </form>
         </div>
         <div v-else>
           <div v-for="(message, index) in messages" :key="index" class="mb-2">
@@ -25,28 +29,42 @@
 </template>
 
 <script>
-import io from 'socket.io-client';
-
+import io from "socket.io-client"
+import axios from 'axios';
 export default {
   data() {
     return {
-      name: '',
+      loggedIn: false,
       username: '',
-      message: '',
+      password: '',
       messages: [],
+      message: '',
+      errorMessage: null,
       socket: null,
     };
   },
   methods: {
-    startChat() {
-      if (this.name !== '') {
-        this.username = this.name;
-        this.socket = io('https://socket2.onrender.com');
-        this.socket.emit('username', this.username);
-        this.socket.on('message', (data) => {
+    async login() {
+    try {
+    const response = await axios.post('http://localhost:3000/api/auth/login', {
+      username: this.username,
+      password: this.password,
+    });
+    console.log(response);
+    const token = response.data.token;
+    localStorage.setItem('token', token);
+    //connect to the server
+    this.socket = io('http://localhost:3000');
+    this.socket.emit('username', this.username);
+    this.socket.on('message', (data) => {
           this.messages.push(data);
         });
-      }
+
+    this.loggedIn = true;
+  } catch (error) {
+    console.error(error);
+    this.errorMessage = `<p class="error">${error.response.data.message}</p>`;
+  }
     },
     sendMessage() {
       if (this.message !== '') {
@@ -61,8 +79,6 @@ export default {
         this.message = '';
       }
     },
- 
   },
 };
 </script>
-
